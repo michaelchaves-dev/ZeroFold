@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zerofold"
+version = "0.1.0"
+description = "Fold information to its minimum useful state. Unfold only what intelligence requires."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Michael Chaves" }]
+requires-python = ">=3.9"
+dependencies = [
+    "aiosqlite>=0.19",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-asyncio>=0.21",
+]
+
+[project.urls]
+Homepage = "https://github.com/michaelchaves-dev/zerofold"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
