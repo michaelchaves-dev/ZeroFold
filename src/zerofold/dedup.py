@@ -1,5 +1,4 @@
-"""
-Dedup engine — Bloom precheck -> fingerprint candidates -> similarity ->
+"""Dedup engine — Bloom precheck -> fingerprint candidates -> similarity ->
 polarity/constraint gate (spec sections 7 and 12).
 
 Similarity only ever generates candidates; it never merges truth by itself.
@@ -14,6 +13,7 @@ from dataclasses import dataclass
 from typing import Dict, Optional
 
 from zerofold.atoms import SemanticAtom
+from zerofold.authority import instructions_conflict, profile_atom
 from zerofold.bloom import BloomFilter
 from zerofold.cns.store import CNSStore, row_to_atom
 from zerofold.similarity import SimilarityBackend, get_default_similarity_backend
@@ -79,8 +79,6 @@ class DedupEngine:
             (row, cand) for row, cand in candidates if cand.fingerprint() == fingerprint
         ]
         if not same_fingerprint:
-            # Bloom false positive — nothing in the fingerprint index. Still
-            # register our own fingerprint so a future match can find *us*.
             bloom.add(fingerprint)
             return DedupDecision("create", atom)
 
@@ -90,13 +88,33 @@ class DedupEngine:
             if score > best_score:
                 best_row, best_atom, best_score = row, cand, score
 
-        if best_atom is None or best_score < self.similarity_candidate_threshold:
+        if best_atom is None:
+            bloom.add(fingerprint)
+            return DedupDecision("create", atom, similarity_score=best_score)
+
+        old_instruction = profile_atom(best_atom)
+        new_instruction = profile_atom(atom)
+        instruction_relation = instructions_conflict(old_instruction, new_instruction)
+
+        # Deterministic instruction semantics outrank lexical similarity.
+        if old_instruction.topic and new_instruction.topic:
+            if old_instruction.topic != new_instruction.topic:
+                bloom.add(fingerprint)
+                return DedupDecision("create", atom, similarity_score=best_score)
+            if instruction_relation is True:
+                return DedupDecision(
+                    "supersede", atom, matched_object_id=best_row["object_id"],
+                    similarity_score=best_score,
+                )
+            if instruction_relation is None:
+                bloom.add(fingerprint)
+                return DedupDecision("create", atom, similarity_score=best_score)
+
+        if best_score < self.similarity_candidate_threshold:
             bloom.add(fingerprint)
             return DedupDecision("create", atom, similarity_score=best_score)
 
         if best_atom.polarity != atom.polarity:
-            # Same subject/predicate/scope, opposite claim: this is a
-            # contradiction, not a duplicate. Supersede, don't overwrite.
             return DedupDecision(
                 "supersede", atom, matched_object_id=best_row["object_id"],
                 similarity_score=best_score,
@@ -108,7 +126,5 @@ class DedupEngine:
                 similarity_score=best_score,
             )
 
-        # Same fingerprint and polarity, but different enough in substance
-        # to be a distinct nuance rather than a restatement.
         bloom.add(fingerprint)
         return DedupDecision("create", atom, similarity_score=best_score)
