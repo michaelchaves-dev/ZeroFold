@@ -39,6 +39,7 @@ from zerofold.atoms import (
     FLAG_HIGH_IMPORTANCE,
     FLAG_SUPERSEDED,
     SemanticAtom,
+    render_claim,
 )
 from zerofold.cns.ledger import Ledger, RoiSnapshot
 from zerofold.cns.store import CNSStore
@@ -46,15 +47,23 @@ from zerofold.complexity import ComplexityInputs, complexity_score, min_quality_
 from zerofold.contracts import OutputContract, contract_from_intent
 from zerofold.conveyor import ConveyorReport, MemoryEvictionConveyor
 from zerofold.dedup import DedupDecision, DedupEngine
-from zerofold.fidelity import FidelityDiff, FidelityGate, FidelityResult, deterministic_diff
+from zerofold.fidelity import (
+    FidelityDiff,
+    FidelityGate,
+    FidelityResult,
+    SemanticDiff,
+    deterministic_diff,
+    semantic_diff,
+)
 from zerofold.outbound import OutboundResult, OutboundSupervisor, OutboundViolation
 from zerofold.supervisor import IntakeEnrichment, ZeroSupervisor
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "__version__",
     "SemanticAtom",
+    "render_claim",
     "FLAG_EXPLICIT_USER_RULE",
     "FLAG_CONFIRMED",
     "FLAG_HIGH_IMPORTANCE",
@@ -67,7 +76,9 @@ __all__ = [
     "FidelityGate",
     "FidelityResult",
     "FidelityDiff",
+    "SemanticDiff",
     "deterministic_diff",
+    "semantic_diff",
     "MemoryEvictionConveyor",
     "ConveyorReport",
     "ComplexityInputs",

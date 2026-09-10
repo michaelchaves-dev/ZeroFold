@@ -1,4 +1,4 @@
-from zerofold.fidelity import FidelityGate, deterministic_diff
+from zerofold.fidelity import FidelityGate, deterministic_diff, semantic_diff
 
 
 def test_deterministic_diff_passes_when_nothing_lost():
@@ -44,6 +44,27 @@ def test_deterministic_diff_flags_dropped_entity():
     diff = deterministic_diff("Contact Sarah about this.", "Contact them about this.")
     assert not diff.ok
     assert any("entities" in m for m in diff.missing_from_candidate)
+
+
+def test_semantic_diff_flags_dropped_always():
+    diff = semantic_diff("Always encrypt PII at rest.", "Encrypt PII at rest.")
+    assert not diff.ok
+    assert "authority:always" in diff.missing_from_candidate
+
+
+def test_semantic_diff_flags_dropped_only():
+    diff = semantic_diff("Only admins may deploy.", "admins may deploy.")
+    assert not diff.ok
+    assert "scope:only" in diff.missing_from_candidate
+
+
+def test_semantic_diff_never_count_collapse():
+    diff = semantic_diff(
+        "please never say never in marketing copy.",
+        "say never in marketing copy.",
+    )
+    assert not diff.ok
+    assert any("negations" in m for m in diff.missing_from_candidate)
 
 
 def test_gate_dispatches_compressed_when_diff_passes_and_no_scorer():

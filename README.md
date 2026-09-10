@@ -126,10 +126,14 @@ messages aging out of context
 ```
 
 Nothing in this path calls a model — that's the point. Distillation is regex/
-heuristic-based on purpose: it can't introduce a claim the source didn't
-make, because every atom's `object` text is a substring the pattern actually
-captured. A host that wants richer, model-backed extraction can layer one in
-front of this and hand ZeroFold the resulting atoms directly instead.
+heuristic-based on purpose. Every atom's `object` is a source span that
+includes the operators that bind the claim, and `semantic_diff` against
+`render_claim` is the spec's DETERMINISTIC FIDELITY CHECK: a capture that
+would drop `"Never"` (or `only` / `except` / `unless` / `must` / `may` / a
+quantity / a date) is rejected and the original clause is stored instead.
+A host that wants richer, model-backed extraction can layer one in front of
+this and hand ZeroFold the resulting atoms directly — they still have to
+pass the same invariant.
 
 ## Promotion and ROI
 
@@ -156,20 +160,33 @@ one number hides the real signal.
 
 ## Fidelity: the "RelAi Race"
 
-Compression is never trusted on the compressor's own word. `FidelityGate`
-runs a free deterministic diff first (entities, numbers, dates, negations
-must survive), and only then optionally asks an independent scorer — which
-must not be the same model that produced the compression — for a fidelity
-score. Below threshold, or if the deterministic diff fails outright, it
-falls back to the raw text rather than shipping something uncertain:
+Compression is never trusted on the compressor's own word. `semantic_diff`
+is a **hard invariant**, not a score: reconstructed content may be shorter,
+but it cannot change polarity, authority, scope, entity, quantity, or
+temporal meaning. `FidelityGate` runs that deterministic check first
+(entities, numbers, dates, operators — polarity compared as a *count* so
+`"never say never"` cannot collapse to one `never`), and only then optionally
+asks an independent scorer — which must not be the same model that produced
+the compression — for a fidelity score. Below threshold, or if the
+deterministic diff fails outright, it falls back to the raw text rather than
+shipping something uncertain.
+
+The distiller is on the same hook. Capturing `"Never"` as a polarity bit and
+dropping it from the stored object used to invert the rule on retrieval.
+The object now keeps the operator; `render_claim` is the only reconstruction
+path; extraction that would fail `semantic_diff` stores the original clause
+instead.
 
 ```python
-from zerofold import FidelityGate
+from zerofold import FidelityGate, semantic_diff, render_claim
 
 gate = FidelityGate(threshold=0.8)
 result = gate.evaluate(raw_text, compressed_text, independent_scorer=my_scorer)
 # result.dispatch_text is what you actually send — compressed if it earned
 # trust, raw otherwise.
+
+verdict = semantic_diff(source, render_claim(atom))
+# verdict.ok is the store/dispatch gate.
 ```
 
 ## Complexity floor
@@ -206,14 +223,10 @@ before.
 pytest -q
 ```
 
-101 tests cover every module: atom hashing/fingerprinting, the Zero Language
-fold/unfold roundtrip, the Bloom filter's no-false-negatives guarantee, the
-relevance gate, the distiller's pattern extraction, the fidelity gate's
-RelAi Race (including retry and fallback paths), dedup's create/reinforce/
-supersede decisions, the CNS store's atomic payback-crossing update, the
-Ledger's promotion rules, the complexity floor, the output contract /
-outbound validator, and a full lifecycle integration test (evict → reinforce
-→ promote → context injection → outbound validation).
+101 tests cover every module in v0.1.0; v0.1.1 adds an adversarial semantic-
+fidelity suite (never / always / only / except / unless / must / may,
+quantities, names, dates, permissions, prohibitions, scope, reversals).
+Run `pytest -q`.
 
 ## License
 
