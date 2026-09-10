@@ -23,6 +23,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence
 
+from zerofold.authority import (
+    AuthorityState,
+    extract_current_instructions,
+    resolve_rows_for_intake,
+    scope_from_context,
+)
 from zerofold.cns.ledger import Ledger
 from zerofold.cns.store import CNSStore, row_to_atom
 from zerofold.complexity import ComplexityInputs, complexity_score, min_quality_tier
@@ -40,6 +46,7 @@ class IntakeEnrichment:
     complexity_score: float
     context_snippet: Optional[str]
     context_atom_ids: List[str] = field(default_factory=list)
+    authority_states: List[AuthorityState] = field(default_factory=list)
 
 
 class ZeroSupervisor:
@@ -91,8 +98,15 @@ class ZeroSupervisor:
         )
 
         snippet, used_ids = None, []
+        authority_states: List[AuthorityState] = []
         if latest_user_text:
             candidates = await self.store.list_namespace(namespace, tier="long_term")
+            current_instructions = extract_current_instructions(latest_user_text)
+            candidates, authority_states = resolve_rows_for_intake(
+                candidates,
+                current_instructions,
+                current_scope=scope_from_context(intent, latest_user_text),
+            )
             scored = []
             for row in candidates:
                 atom = row_to_atom(row)
@@ -127,6 +141,7 @@ class ZeroSupervisor:
             complexity_score=score,
             context_snippet=snippet,
             context_atom_ids=used_ids,
+            authority_states=authority_states,
         )
 
     def outbound(self, text: str, contract: OutputContract) -> OutboundResult:

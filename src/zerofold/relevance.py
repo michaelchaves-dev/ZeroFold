@@ -33,6 +33,11 @@ _KEEP_MARKERS = (
     "cannot exceed", "can't exceed", "rule:", "constraint:", "decision:",
 )
 
+_DIRECTIVE_START = re.compile(
+    r"^(?:(?:for|in) code reviews?,\s*|(?:for )?(?:this answer|this response|this turn) only,\s*)?"
+    r"(?:use|include|keep|answer|write|respond|avoid|ignore|explain)\b",
+    re.I,
+)
 _HAS_DIGIT_OR_AT = re.compile(r"\d|@")
 
 
@@ -53,6 +58,9 @@ def evaluate(text: str) -> RelevanceDecision:
 
     if norm.strip(" .!?") in _DISCARD_PHRASES:
         return RelevanceDecision(False, "pleasantry")
+
+    if _DIRECTIVE_START.search(norm):
+        return RelevanceDecision(True, "explicit_directive", ["directive"])
 
     signals = [m for m in _KEEP_MARKERS if m in norm]
     if signals:
