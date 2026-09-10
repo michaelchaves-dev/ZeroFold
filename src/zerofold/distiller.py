@@ -37,6 +37,19 @@ _RULE_RE = re.compile(
     r"\b(always|never|must|should) ([^.!?\n]{2,%d})" % _MAX_CLAUSE, re.I
 )
 
+_SCOPED_DIRECTIVE_RE = re.compile(
+    r"(?:^|(?<=[.!?])\s+)for code reviews?,\s*"
+    r"(use|include|keep|answer|write|respond|avoid|ignore|explain)\s+"
+    r"([^.!?\n]{2,%d})" % _MAX_CLAUSE,
+    re.I,
+)
+_DIRECTIVE_RE = re.compile(
+    r"(?:^|(?<=[.!?])\s+)"
+    r"(use|include|keep|answer|write|respond|avoid|ignore|explain)\s+"
+    r"([^.!?\n]{2,%d})" % _MAX_CLAUSE,
+    re.I,
+)
+
 _DECISION_RE = re.compile(
     r"\b(?:we decided|let'?s go with|the plan is|decision:) ([^.!?\n]{2,%d})" % _MAX_CLAUSE,
     re.I,
@@ -50,7 +63,7 @@ _CONSTRAINT_RE = re.compile(
 
 
 def _subject_for(role: str) -> str:
-    return "user" if role == "user" else "assistant"
+    return role if role in {"user", "assistant", "system", "developer"} else "assistant"
 
 
 def distill_message(
@@ -95,6 +108,31 @@ def distill_message(
             source_refs=[ref], namespace=namespace,
             flags=FLAG_EXPLICIT_USER_RULE if role == "user" else 0,
         ))
+
+    # Minimal imperative support for instruction forms the original floor
+    # could not persist. Anchoring intentionally keeps "this answer only"
+    # instructions transient instead of turning them into standing memory.
+    m = _SCOPED_DIRECTIVE_RE.search(text)
+    if m:
+        verb, clause = m.group(1), m.group(2)
+        atoms.append(SemanticAtom(
+            subject=subject, predicate="states_rule",
+            object=f"{verb} {clause}".strip(),
+            polarity=(verb.lower() != "avoid"), scope="code_review", confidence=0.85,
+            source_refs=[ref], namespace=namespace,
+            flags=FLAG_EXPLICIT_USER_RULE if role == "user" else 0,
+        ))
+    else:
+        m = _DIRECTIVE_RE.search(text)
+        if m:
+            verb, clause = m.group(1), m.group(2)
+            atoms.append(SemanticAtom(
+                subject=subject, predicate="states_rule",
+                object=f"{verb} {clause}".strip(),
+                polarity=(verb.lower() != "avoid"), scope="rule", confidence=0.85,
+                source_refs=[ref], namespace=namespace,
+                flags=FLAG_EXPLICIT_USER_RULE if role == "user" else 0,
+            ))
 
     m = _DECISION_RE.search(text)
     if m:
