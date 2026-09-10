@@ -10,6 +10,7 @@ atom into a compact reference without changing this shape.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import List, Optional
 
@@ -18,6 +19,17 @@ FLAG_EXPLICIT_USER_RULE = 1 << 0
 FLAG_CONFIRMED = 1 << 1
 FLAG_HIGH_IMPORTANCE = 1 << 2
 FLAG_SUPERSEDED = 1 << 3
+
+# Surface operators that already mark a claim as negated. `render_claim`
+# must not prefix another "not" on top of these or it reverses meaning —
+# including when the operator is mid-clause ("You must not share…").
+_NEGATION_TOKENS = {
+    "never", "not", "no", "none", "neither", "nor", "don't", "doesn't",
+    "didn't", "cannot", "can't", "won't", "mustn't", "shouldn't",
+    "wouldn't", "couldn't", "isn't", "aren't", "wasn't", "weren't",
+    "without", "forbidden", "prohibited", "banned", "disallowed",
+}
+_TOKEN_RE = re.compile(r"[a-z']+")
 
 
 def has_flag(flags: int, flag: int) -> bool:
@@ -95,3 +107,22 @@ class SemanticAtom:
 
     def with_flag(self, flag: int) -> "SemanticAtom":
         return SemanticAtom(**{**self.__dict__, "flags": set_flag(self.flags, flag)})
+
+
+def render_claim(atom: SemanticAtom) -> str:
+    """Canonical reconstruction of an atom into a claim string.
+
+    The polarity bit is a structured field for dedup, not a second copy of
+    the operator. If the object already carries a negation anywhere in the
+    span ("Never use…", "You must not…"), we must not prefix another "not"
+    — that reverses the stored rule. If polarity is False and the object
+    has no operator, we MUST surface one, otherwise retrieval injects the
+    opposite instruction.
+    """
+    pred = atom.predicate.replace("_", " ")
+    obj = atom.object.strip()
+    if atom.polarity is False:
+        tokens = set(_TOKEN_RE.findall(obj.lower()))
+        if not (tokens & _NEGATION_TOKENS):
+            obj = f"not {obj}"
+    return f"{atom.subject} {pred} {obj}"

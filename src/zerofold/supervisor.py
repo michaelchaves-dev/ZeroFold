@@ -23,6 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence
 
+from zerofold.atoms import render_claim
 from zerofold.cns.ledger import Ledger
 from zerofold.cns.store import CNSStore, row_to_atom
 from zerofold.complexity import ComplexityInputs, complexity_score, min_quality_tier
@@ -96,7 +97,7 @@ class ZeroSupervisor:
             scored = []
             for row in candidates:
                 atom = row_to_atom(row)
-                text = f"{atom.subject} {atom.predicate} {atom.object}"
+                text = render_claim(atom)
                 s = self.similarity.similarity(latest_user_text, text)
                 if s >= self.context_similarity_floor:
                     scored.append((s, row, atom))
@@ -105,7 +106,7 @@ class ZeroSupervisor:
             lines: List[str] = []
             budget = self.context_token_budget
             for _, row, atom in scored[: self.context_atom_limit]:
-                line = f"- {atom.subject} {atom.predicate.replace('_', ' ')} {atom.object}"
+                line = f"- {render_claim(atom)}"
                 cost = estimate_tokens(line)
                 if cost > budget:
                     break

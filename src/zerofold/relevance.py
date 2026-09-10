@@ -26,11 +26,13 @@ _RETRY_MARKERS = (
 )
 
 _KEEP_MARKERS = (
-    "always", "never", "must", "should", "remember that", "remember,",
+    "always", "never", "must", "should", "may", "only", "except", "unless",
+    "remember that", "remember,",
     "note that", "my name is", "i am ", "i'm ", "i prefer", "i like",
     "i don't like", "i dislike", "we decided", "let's go with",
     "the plan is", "the deadline is", "budget is", "must not",
-    "cannot exceed", "can't exceed", "rule:", "constraint:", "decision:",
+    "cannot exceed", "can't exceed", "cannot", "forbidden", "prohibited",
+    "rule:", "constraint:", "decision:",
 )
 
 _HAS_DIGIT_OR_AT = re.compile(r"\d|@")

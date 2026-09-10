@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zerofold"
-version = "0.1.0"
+version = "0.1.1"
 description = "Fold information to its minimum useful state. Unfold only what intelligence requires."
 readme = "README.md"
 license = { file = "LICENSE" }

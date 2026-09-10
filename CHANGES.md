@@ -1,5 +1,32 @@
 # Changes
 
+## v0.1.1 — semantic fidelity invariant
+
+The distiller used to capture `(always|never|must|should)` as a keyword,
+store only the remainder as `object`, and reconstruct context as
+`"{subject} {predicate} {object}"` — polarity was never rendered. That
+dropped the word **Never** from stored rules and inverted them on
+retrieval (`"Never use emojis"` became `"use emojis"`).
+
+Meaning is now a hard gate, before retrieval, routing, or savings:
+
+- `semantic_diff` compares polarity *counts* (so `"never say never"` cannot
+  collapse to one `never`), plus authority / permission / scope / entity /
+  quantity / temporal tokens. Polarity-family substitution (`never`→`not`)
+  is allowed; introducing a negation into an affirmative is not.
+- Distiller keeps the modal in the object span, captures every rule in the
+  message (`finditer`), and derives polarity from the span (`must not` is
+  negative). After extraction it runs the spec's DETERMINISTIC FIDELITY
+  CHECK against `render_claim`. Failure stores the original clause rather
+  than a lying compression.
+- `render_claim` is the only reconstruction path (supervisor intake uses
+  it). It will not prefix `not` onto an object that already starts with
+  `Never`/`not`/… — that was a reversal waiting to happen.
+
+Adversarial coverage in `tests/test_semantic_fidelity.py`: not, never,
+always, only, except, unless, must, may, quantities, names, dates,
+permissions, prohibitions, scope, reversals.
+
 ## v0.1.0 — initial release
 
 Day-One implementation of the frozen Zero Supervisor specification
