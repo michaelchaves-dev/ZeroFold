@@ -97,7 +97,10 @@ def scope_from_context(intent: str, text: str = "") -> str:
 def _semantic_topic_value(text: str, polarity: bool) -> Tuple[Optional[str], Optional[str]]:
     t = " ".join((text or "").split()).strip().lower()
 
-    if re.search(r"\b(?:word limit|words?|concise|concisely|brief|briefly|detail|detailed|verbose|verbosity)\b", t):
+    if re.search(
+        r"\b(?:word limit|words?|concise|concisely|brief|briefly|short|shorter|detail|detailed|verbose|verbosity)\b",
+        t,
+    ):
         if "ignore" in t and ("limit" in t or "words" in t):
             m = re.search(r"\b(\d+)\s*[- ]?word", t)
             return "response_length", "ignore_limit:%s" % (m.group(1) if m else "*")
@@ -110,7 +113,7 @@ def _semantic_topic_value(text: str, polarity: bool) -> Tuple[Optional[str], Opt
                 "at least": "at_least",
             }.get(m.group(1).lower(), m.group(1).lower().replace(" ", "_"))
             return "response_length", "%s:%s" % (op, m.group(2))
-        if re.search(r"\b(?:concise|concisely|brief|briefly)\b", t):
+        if re.search(r"\b(?:concise|concisely|brief|briefly|short|shorter)\b", t):
             return "response_length", "concise"
         if re.search(r"\b(?:detail|detailed|verbose|verbosity)\b", t):
             return "response_length", "detailed"
@@ -227,6 +230,10 @@ def instructions_conflict(a: InstructionCandidate, b: InstructionCandidate) -> O
             return True
         if {a.value, b.value} == {"concise", "detailed"}:
             return True
+        ceiling_a = bool(a.value and (a.value.startswith("under:") or a.value.startswith("at_most:")))
+        ceiling_b = bool(b.value and (b.value.startswith("under:") or b.value.startswith("at_most:")))
+        if ((a.value == "concise" and ceiling_b) or (b.value == "concise" and ceiling_a)):
+            return False if a.polarity and b.polarity else None
         if a.value and b.value and ":" in a.value and ":" in b.value:
             return None
         return None
